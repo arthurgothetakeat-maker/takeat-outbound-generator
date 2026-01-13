@@ -1,19 +1,58 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MapPin, Building2, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MapPin, Building2, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Map } from "lucide-react";
 
 const WEBHOOK_URL = "https://webhook.takeat.cloud/webhook/gerar_leads_outbound21566";
 
+const BRAZILIAN_STATES = [
+  { name: "Acre", abbr: "AC" },
+  { name: "Alagoas", abbr: "AL" },
+  { name: "Amapá", abbr: "AP" },
+  { name: "Amazonas", abbr: "AM" },
+  { name: "Bahia", abbr: "BA" },
+  { name: "Ceará", abbr: "CE" },
+  { name: "Distrito Federal", abbr: "DF" },
+  { name: "Espírito Santo", abbr: "ES" },
+  { name: "Goiás", abbr: "GO" },
+  { name: "Maranhão", abbr: "MA" },
+  { name: "Mato Grosso", abbr: "MT" },
+  { name: "Mato Grosso do Sul", abbr: "MS" },
+  { name: "Minas Gerais", abbr: "MG" },
+  { name: "Pará", abbr: "PA" },
+  { name: "Paraíba", abbr: "PB" },
+  { name: "Paraná", abbr: "PR" },
+  { name: "Pernambuco", abbr: "PE" },
+  { name: "Piauí", abbr: "PI" },
+  { name: "Rio de Janeiro", abbr: "RJ" },
+  { name: "Rio Grande do Norte", abbr: "RN" },
+  { name: "Rio Grande do Sul", abbr: "RS" },
+  { name: "Rondônia", abbr: "RO" },
+  { name: "Roraima", abbr: "RR" },
+  { name: "Santa Catarina", abbr: "SC" },
+  { name: "São Paulo", abbr: "SP" },
+  { name: "Sergipe", abbr: "SE" },
+  { name: "Tocantins", abbr: "TO" },
+];
+
 const MainInterface = () => {
+  const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const isFormValid = state && city.trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!state) {
+      setError("Por favor, selecione o estado.");
+      return;
+    }
     
     if (!city.trim()) {
       setError("Por favor, informe a cidade.");
@@ -25,7 +64,8 @@ const MainInterface = () => {
     setSuccess(false);
 
     try {
-      const payload: { cidade: string; bairro?: string } = {
+      const payload: { estado: string; cidade: string; bairro?: string } = {
+        estado: state,
         cidade: city.trim(),
       };
 
@@ -59,6 +99,7 @@ const MainInterface = () => {
         document.body.removeChild(link);
         
         setSuccess(true);
+        setState("");
         setCity("");
         setNeighborhood("");
         
@@ -111,6 +152,33 @@ const MainInterface = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6 max-w-md mx-auto">
+            {/* State Field */}
+            <div className="space-y-2">
+              <label htmlFor="state" className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Map className="w-4 h-4 text-primary" />
+                Estado <span className="text-destructive">*</span>
+              </label>
+              <Select
+                value={state}
+                onValueChange={(value) => {
+                  setState(value);
+                  setError(null);
+                }}
+                disabled={isLoading}
+              >
+                <SelectTrigger id="state" className="h-12">
+                  <SelectValue placeholder="Selecione o estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BRAZILIAN_STATES.map((s) => (
+                    <SelectItem key={s.abbr} value={s.name}>
+                      {s.name} – {s.abbr}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* City Field */}
             <div className="space-y-2">
               <label htmlFor="city" className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -170,7 +238,7 @@ const MainInterface = () => {
             <Button
               type="submit"
               className="w-full h-14 text-base font-semibold"
-              disabled={isLoading}
+              disabled={isLoading || !isFormValid}
             >
               {isLoading ? (
                 <>
