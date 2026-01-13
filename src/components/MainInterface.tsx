@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Building2, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Map } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const WEBHOOK_URL = "https://webhook.takeat.cloud/webhook/gerar_leads_outbound21566";
 
@@ -87,27 +88,40 @@ const MainInterface = () => {
 
       const data = await response.json();
 
-      if (data.download_url || data.url || data.link) {
-        const downloadUrl = data.download_url || data.url || data.link;
-        
-        // Trigger automatic download
-        const link = document.createElement("a");
-        link.href = downloadUrl;
-        link.download = `restaurantes_${city.trim().toLowerCase().replace(/\s+/g, "_")}.xlsx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        setSuccess(true);
-        setState("");
-        setCity("");
-        setNeighborhood("");
-        
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccess(false), 5000);
-      } else {
-        throw new Error("Link de download não encontrado na resposta");
+      // Extract restaurant names from response
+      const restaurantes: string[] = data.restaurantes || data.names || data.nomes || data;
+      
+      if (!Array.isArray(restaurantes) || restaurantes.length === 0) {
+        throw new Error("Nenhum restaurante encontrado");
       }
+
+      // Create Excel workbook
+      const worksheetData = [
+        ["Nome do Restaurante"], // Header
+        ...restaurantes.map((nome: string) => [nome])
+      ];
+      
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      
+      // Set column width
+      worksheet["!cols"] = [{ wch: 50 }];
+      
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Restaurantes");
+      
+      // Generate filename
+      const filename = `restaurantes_${state.toLowerCase().replace(/\s+/g, "_")}_${city.trim().toLowerCase().replace(/\s+/g, "_")}.xlsx`;
+      
+      // Trigger download
+      XLSX.writeFile(workbook, filename);
+      
+      setSuccess(true);
+      setState("");
+      setCity("");
+      setNeighborhood("");
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccess(false), 5000);
     } catch (err) {
       console.error("Error:", err);
       setError("Não foi possível gerar a lista. Por favor, tente novamente.");
