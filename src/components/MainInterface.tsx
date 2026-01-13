@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Building2, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Map } from "lucide-react";
-import * as XLSX from "xlsx";
+import { MapPin, Building2, Loader2, AlertCircle, CheckCircle2, Map, Phone, Send } from "lucide-react";
 
 const WEBHOOK_URL = "https://webhook.takeat.cloud/webhook/gerar_leads_outbound21566";
 
@@ -41,11 +40,35 @@ const MainInterface = () => {
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
+  const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const isFormValid = state && city.trim();
+  const isFormValid = state && city.trim() && phone.trim();
+
+  const formatPhone = (value: string) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, "");
+    
+    // Limita a 11 dígitos
+    const limited = numbers.slice(0, 11);
+    
+    // Formata: (XX) XXXXX-XXXX
+    if (limited.length <= 2) {
+      return limited;
+    } else if (limited.length <= 7) {
+      return `(${limited.slice(0, 2)}) ${limited.slice(2)}`;
+    } else {
+      return `(${limited.slice(0, 2)}) ${limited.slice(2, 7)}-${limited.slice(7)}`;
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setPhone(formatted);
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,14 +83,27 @@ const MainInterface = () => {
       return;
     }
 
+    if (!phone.trim()) {
+      setError("Por favor, informe o celular para receber a lista.");
+      return;
+    }
+
+    // Valida se tem pelo menos 10 dígitos
+    const phoneNumbers = phone.replace(/\D/g, "");
+    if (phoneNumbers.length < 10) {
+      setError("Por favor, informe um número de celular válido.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setSuccess(false);
 
     try {
-      const payload: { estado: string; cidade: string; bairro?: string } = {
+      const payload: { estado: string; cidade: string; bairro?: string; celular: string } = {
         estado: state,
         cidade: city.trim(),
+        celular: phoneNumbers,
       };
 
       if (neighborhood.trim()) {
@@ -86,45 +122,17 @@ const MainInterface = () => {
         throw new Error("Erro na requisição");
       }
 
-      const data = await response.json();
-
-      // Extract restaurant names from response
-      const restaurantes: string[] = data.restaurantes || data.names || data.nomes || data;
-      
-      if (!Array.isArray(restaurantes) || restaurantes.length === 0) {
-        throw new Error("Nenhum restaurante encontrado");
-      }
-
-      // Create Excel workbook
-      const worksheetData = [
-        ["Nome do Restaurante"], // Header
-        ...restaurantes.map((nome: string) => [nome])
-      ];
-      
-      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-      
-      // Set column width
-      worksheet["!cols"] = [{ wch: 50 }];
-      
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Restaurantes");
-      
-      // Generate filename
-      const filename = `restaurantes_${state.toLowerCase().replace(/\s+/g, "_")}_${city.trim().toLowerCase().replace(/\s+/g, "_")}.xlsx`;
-      
-      // Trigger download
-      XLSX.writeFile(workbook, filename);
-      
       setSuccess(true);
       setState("");
       setCity("");
       setNeighborhood("");
+      setPhone("");
       
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccess(false), 5000);
+      // Clear success message after 8 seconds
+      setTimeout(() => setSuccess(false), 8000);
     } catch (err) {
       console.error("Error:", err);
-      setError("Não foi possível gerar a lista. Por favor, tente novamente.");
+      setError("Não foi possível processar sua solicitação. Por favor, tente novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +158,7 @@ const MainInterface = () => {
           {/* Icon */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <FileSpreadsheet className="w-10 h-10 text-primary" />
+              <Send className="w-10 h-10 text-primary" />
             </div>
           </div>
 
@@ -160,12 +168,32 @@ const MainInterface = () => {
               Gerar Lista de Restaurantes
             </h2>
             <p className="text-muted-foreground mt-2">
-              Informe a cidade para buscar restaurantes e gerar um arquivo Excel
+              Informe os dados e receba a lista diretamente no seu WhatsApp
             </p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6 max-w-md mx-auto">
+            {/* Phone Field */}
+            <div className="space-y-2">
+              <label htmlFor="phone" className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Phone className="w-4 h-4 text-primary" />
+                Celular (WhatsApp) <span className="text-destructive">*</span>
+              </label>
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={handlePhoneChange}
+                placeholder="(00) 00000-0000"
+                className="h-12"
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                A lista será enviada para este número via WhatsApp
+              </p>
+            </div>
+
             {/* State Field */}
             <div className="space-y-2">
               <label htmlFor="state" className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -240,11 +268,14 @@ const MainInterface = () => {
 
             {/* Success Message */}
             {success && (
-              <div className="flex items-start gap-3 p-4 bg-success/10 border border-success/20 rounded-lg">
+              <div className="flex items-start gap-3 p-4 bg-success/10 border border-success/20 rounded-lg animate-fade-in">
                 <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-                <p className="text-success text-sm font-medium">
-                  Lista gerada com sucesso! O download iniciou automaticamente.
-                </p>
+                <div className="text-success text-sm font-medium">
+                  <p className="font-semibold">Lista enviada com sucesso! 🎉</p>
+                  <p className="mt-1 opacity-90">
+                    Você receberá a lista de restaurantes no seu WhatsApp em instantes.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -257,12 +288,12 @@ const MainInterface = () => {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Gerando lista...
+                  Processando...
                 </>
               ) : (
                 <>
-                  <FileSpreadsheet className="w-5 h-5 mr-2" />
-                  Gerar lista de restaurantes
+                  <Send className="w-5 h-5 mr-2" />
+                  Gerar e enviar lista via WhatsApp
                 </>
               )}
             </Button>
@@ -271,7 +302,7 @@ const MainInterface = () => {
           {/* Loading State Info */}
           {isLoading && (
             <p className="text-center text-muted-foreground text-sm mt-4">
-              Buscando restaurantes e gerando arquivo Excel...
+              Buscando restaurantes e preparando envio...
               <br />
               <span className="text-xs">Isso pode levar alguns segundos.</span>
             </p>
