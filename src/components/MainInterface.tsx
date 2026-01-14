@@ -186,8 +186,8 @@ const MainInterface = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {BRAZILIAN_STATES.map((s) => (
-                    <SelectItem key={s.abbr} value={s.name}>
-                      {s.name} – {s.abbr}
+                    <SelectItem key={s.abbr} value={s.abbr}>
+                      {s.abbr} – {s.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
